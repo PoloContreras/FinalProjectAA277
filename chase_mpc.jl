@@ -7,6 +7,9 @@ using LinearAlgebra
 
 T = Float64
 
+k = 10 #number of iterations in MPC
+steps = 5 #time steps before replanning
+
 # Define the dynamics of the system
 p = 3 # Number of players
 model = BicycleGame(p=p) # game with 3 players with unicycle dynamics
@@ -14,26 +17,14 @@ n = model.n
 m = model.m
 
 # Define the horizon of the problem
-N = 20 # N time steps
+N = 20 # N time steps per solve
 dt = 0.1 # each step lasts 0.1 second
 probsize = ProblemSize(N,model) # Structure holding the relevant sizes of the problem
 
 # Define the objective of each player
 # We use a LQR cost
-Q = [Diagonal(10*ones(SVector{model.ni[i],T})) for i=1:p] # Quadratic state cost
+Q = [Diagonal([10,10,10,0].*ones(SVector{model.ni[i],T})) for i=1:p] # Quadratic state cost
 R = [Diagonal(0.1*ones(SVector{model.mi[i],T})) for i=1:p] # Quadratic control cost
-# Desrired state
-xf = [SVector{model.ni[1],T}([2,+0.4,0,0]),
-      SVector{model.ni[2],T}([2, 0.0,0,0]),
-      SVector{model.ni[3],T}([3,-0.4,0,0]),
-      ]
-# Desired control
-uf = [zeros(SVector{model.mi[i],T}) for i=1:p]
-# Objectives of the game
-game_obj = GameObjective(Q,R,xf,uf,N,model)
-radius = 1.0*ones(p)
-μ = 5.0*ones(p)
-add_collision_cost!(game_obj, radius, μ)
 
 # Define the constraints that each player must respect
 game_con = GameConstraintValues(probsize)
@@ -57,44 +48,121 @@ yc = [1., 2., 3.]
 radius = [0.1, 0.2, 0.3]
 add_circle_constraint!(game_con, xc, yc, radius)
 
+# Designed to hold the trajectory of the entire rollout
+trajTotal = zeros((steps*k,4,p));
 
-# Define the initial state of the system
-x0 = SVector{model.n,T}([
-    0.1, 0.0, 0.5,
-   -0.4, 0.0, 0.7,
-    0.0, 0.0, 0.0,
-    0.0, 0.0, 0.0,
-    ])
+# trajTotal[1,:,1] = start_1;
+# trajTotal[1,:,2] = start_2;
+# trajTotal[1,:,3] = start_3;
 
-# Define the Options of the solver
-opts = Options()
-# Define the game problem
-prob = GameProblem(N,dt,x0,model,opts,game_obj,game_con)
+# print(trajTotal)
 
-# Solve the problem
-@time newton_solve!(prob)
+# Arrays defining initial state for each agent
+# start_1 = [0.1,-0.4,0.0,0.0];
+start_1 = [0.5,0.0,0.0,1.4]
+start_2 = [0.0,0.0,0.0,0.0];
+start_3 = [0.5,0.7,0.0,0.0];
 
-# Visualize the Results
-using Plots
-plot(prob.model, prob.pdtraj.pr)
-# savefig("probmodel_pdtraj.png")
+# Column vectors defining desired state for each agent
+r1 = radius[1] + radius[3] + 0.1; # minimum permissible distance between 1 and 3
+goal_1 = [start_3[1]+r1*cos(start_3[4]),start_3[2]+r1*sin(start_3[4]),0,0];
+# goal_1 = [2, 0.4,0,0];
+r2 = radius[2] + radius[3] + 0.1;
+goal_2 = [start_3[1]-r2*cos(start_3[4]),start_3[2]-r2*sin(start_3[4]),0,0];
+# goal_2 = [2, 0.0,0,0];
+goal_3 = [3,-0.4,0,0];
 
-plot(prob.stats)
-# savefig("prob_stats.png")
+print(goal_1,"\n")
+print(goal_2,"\n")
+print(goal_3,"\n")
 
-# print(size(prob.pdtraj.pr))
+for iter in 1:k
 
-trajXY = zeros(N,2,p); # tensor containing subset of the trajectories calculated by the
+    # Desrired state
+    xf = [SVector{model.ni[1],T}(goal_1),
+          SVector{model.ni[2],T}(goal_2),
+          SVector{model.ni[3],T}(goal_3),
+          ]
+    # Desired control
+    uf = [zeros(SVector{model.mi[i],T}) for i=1:p]
 
-for i in 1:N
-    # print("Step ",i,": ",prob.pdtraj.pr[i].z,"\n")
-    tempTrajMat = reshape(prob.pdtraj.pr[i].z,(3,6));
-    print("Step :",i,": ",tempTrajMat,"\n")
-    for j in 1:p
-        trajXY[i,:,j] = tempTrajMat[j,1:2]
+    # Objectives of the game
+    game_obj = GameObjective(Q,R,xf,uf,N,model)
+    radius = 1.0*ones(p)
+    μ = 5.0*ones(p)
+    add_collision_cost!(game_obj, radius, μ)
+
+    # Define the initial state of the system
+    x0 = SVector{model.n,T}(reshape([
+        start_1 start_2 start_3
+        ]',(n,1)))
+
+    # print([
+    #     start_1 start_2 start_3
+    #     ]',reshape([
+    #         start_1 start_2 start_3
+    #         ]',(n,1)))
+    #
+
+    # x0 = SVector{model.n,T}([
+    #     0.1, 0.0, 0.5,
+    #    -0.4, 0.0, 0.7,
+    #     0.0, 0.0, 0.0,
+    #     0.0, 0.0, 0.0,
+    #     ])
+
+    # Define the Options of the solver
+    opts = Options()
+    # Define the game problem
+    prob = GameProblem(N,dt,x0,model,opts,game_obj,game_con)
+
+    # Solve the problem
+    @time newton_solve!(prob)
+
+    # Visualize the Results
+    # using Plots
+    # plot(prob.model, prob.pdtraj.pr)
+    # savefig("probmodel_pdtraj.png")
+
+    # plot(prob.stats)
+    # savefig("prob_stats.png")
+
+    # print(size(prob.pdtraj.pr))
+
+    trajXYVphi = zeros(N,4,p); # tensor containing subset of the trajectories calculated by the solver
+
+    for i in 1:N
+        # print("Step ",i,": ",prob.pdtraj.pr[i].z,"\n")
+        tempTrajMat = reshape(prob.pdtraj.pr[i].z,(3,6));
+        print("Step :",i,": ",tempTrajMat,"\n")
+        for j in 1:p
+            trajXYVphi[i,:,j] = tempTrajMat[j,1:4];
+        end
     end
+    global trajTotal[steps*(iter-1)+1:steps*iter,:,:] = trajXYVphi[1:steps,:,:];
+
+    if iter != k
+        global start_1 = trajXYVphi[steps+1,:,1];
+        global start_2 = trajXYVphi[steps+1,:,2];
+        global start_3 = trajXYVphi[steps+1,:,3];
+    end
+
+    global goal_1 = [start_3[1]+r1*cos(start_3[4]),start_3[2]+r1*sin(start_3[4]),0,0];
+    global goal_2 = [start_3[1]+r2*cos(start_3[4]),start_3[2]+r2*sin(start_3[4]),0,0];
+
+    # Calculate next goal positions of pursuing agents
+
 end
 
-print(trajXY)
-plot(trajXY[:,1,:],trajXY[:,2,:])
+using Plots
+# print(size(trajTotal))
+# print(trajTotal)
+plot(trajTotal[:,1,:],trajTotal[:,2,:])
 savefig("trajectory_total.png")
+
+for player in 1:p
+    for paso in 1:steps*k
+        print("\n",trajTotal[paso,:,player])
+    end
+    print("\n")
+end
