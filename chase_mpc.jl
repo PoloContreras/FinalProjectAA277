@@ -145,12 +145,17 @@ for iter in 1:k
         global start_1 = trajXYVphi[steps+1,:,1];
         global start_2 = trajXYVphi[steps+1,:,2];
         global start_3 = trajXYVphi[steps+1,:,3];
+
+        idx = 2*steps; #predicted location of pursued agent at end of next iteration
+
+        # Calculate next goal positions of pursuing agents
+        global goal_1 = [trajXYVphi[idx,1,3]+r1*cos(trajXYVphi[idx,4,3]),trajXYVphi[idx,2,3]+r1*sin(trajXYVphi[idx,4,3]),0,0];
+        global goal_2 = [trajXYVphi[idx,1,3]-r2*cos(trajXYVphi[idx,4,3]),trajXYVphi[idx,2,3]-r2*sin(trajXYVphi[idx,4,3]),0,0];
+    else
+        # Calculate final goal positions of pursuing agents
+        global goal_1 = [trajXYVphi[steps,1,3]+r1*cos(trajXYVphi[steps,4,3]),trajXYVphi[steps,2,3]+r1*sin(trajXYVphi[steps,4,3]),0,0];
+        global goal_2 = [trajXYVphi[steps,1,3]-r2*cos(trajXYVphi[steps,4,3]),trajXYVphi[steps,2,3]-r2*sin(trajXYVphi[steps,4,3]),0,0];
     end
-
-    global goal_1 = [start_3[1]+r1*cos(start_3[4]),start_3[2]+r1*sin(start_3[4]),0,0];
-    global goal_2 = [start_3[1]+r2*cos(start_3[4]),start_3[2]+r2*sin(start_3[4]),0,0];
-
-    # Calculate next goal positions of pursuing agents
 
 end
 
