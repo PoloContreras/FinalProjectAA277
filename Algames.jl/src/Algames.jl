@@ -162,7 +162,10 @@ export
 # Plots
 export
     recipe_traj,
-    recipe_violation
+    recipe_violation,
+    plot_traj!,
+    plot_epochs!,
+    plot_violation!
 
 
 # Utils

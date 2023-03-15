@@ -3,7 +3,7 @@ using Algames
 using StaticArrays
 using LinearAlgebra
 using MeshCat
-
+using Plots
 
 # Visualize Scenario
 vis = Visualizer()
@@ -78,4 +78,4 @@ set_traj!(vis, model, sce, prob.pdtraj.pr)
 # Plotting vehicles' trajectories and velocities and the solver's progress
 plot!(prob.stats)
 plot!(model, prob.pdtraj.pr)
-plot_velocity_!(model, prob.pdtraj.pr)
+# plot_velocity_!(model, prob.pdtraj.pr)

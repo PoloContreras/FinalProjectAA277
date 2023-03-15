@@ -1,7 +1,8 @@
 ################################################################################
 # Drone Example
 ################################################################################
-# using Algames
+using Algames
+using AlgamesDriving
 using StaticArrays
 using LinearAlgebra
 using MeshCat
