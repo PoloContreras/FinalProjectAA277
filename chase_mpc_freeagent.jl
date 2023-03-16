@@ -5,7 +5,7 @@ using Algames
 using StaticArrays
 using LinearAlgebra
 
-include("driveSolverJulia.ipynb")
+include("driveSolverJulia.jl")
 
 T = Float64
 
@@ -81,12 +81,12 @@ print(goal_3,"\n")
 for iter in 1:k
 
     # Assuming opposing agents are stationary
-    obsTraj = cat(repeat(start_1,1,numSteps),repeat(start_2,1,numSteps),dims=3)
-    rTotal = 0.3*ones(numSteps,p) #assuming dimensions of other players are constant
+    obsTraj = cat(repeat(start_1[1:2],1,N),repeat(start_2[1:2],1,N),dims=3)
+    rTotal = 0.3*ones(N,p) #assuming dimensions of other players are constant
 
     # Plan the trajectory of the agent unaware of other agents' movements
-    mpcTraj = trajPlan(start_3,goal_3,x_min[1],x_max[1],x_min[2],x_max[2],u_min,u_max,obsTraj,rTotal,N,radius[3])
-    global trajTotal[steps*(iter-1)+1:steps*iter,:,p+1] = trajPlan[:,1:steps]'; #record relevant steps
+    mpcTraj = trajPlan(start_3,goal_3,x_min[1],x_max[1],x_min[2],x_max[2],[-5,-5],[5,5],obsTraj,rTotal,N,0.3)
+    global trajTotal[steps*(iter-1)+1:steps*iter,:,p+1] = mpcTraj[:,1:steps]'; #record relevant steps
 
     # Desrired state
     xf = [SVector{model.ni[1],T}(goal_1),
@@ -142,34 +142,36 @@ for iter in 1:k
 
     for i in 1:N
         # print("Step ",i,": ",prob.pdtraj.pr[i].z,"\n")
-        tempTrajMat = reshape(prob.pdtraj.pr[i].z,(3,6));
+        tempTrajMat = reshape(prob.pdtraj.pr[i].z,(p,6));
         print("Step :",i,": ",tempTrajMat,"\n")
         for j in 1:p
             trajXYVphi[i,:,j] = tempTrajMat[j,1:4];
         end
     end
-    global trajTotal[steps*(iter-1)+1:steps*iter,:,:] = trajXYVphi[1:steps,:,:];
+    # print("here")
+    global trajTotal[steps*(iter-1)+1:steps*iter,:,1:p] = trajXYVphi[1:steps,:,:];
+    # print("aqui")
 
     if iter != k
         global start_1 = trajXYVphi[steps+1,:,1];
         global start_2 = trajXYVphi[steps+1,:,2];
-        global start_3 = trajPlan[:,steps+1];
+        global start_3 = mpcTraj[:,steps+1];
 
-        idx = 2*steps; #predicted location of pursued agent at end of next iteration
+        idx = steps; #predicted location of pursued agent at end of next iteration
 
         # Calculate next goal positions of pursuing agents
         # global goal_1 = [trajXYVphi[idx,1,3]+r1*cos(trajXYVphi[idx,4,3]),trajXYVphi[idx,2,3]+r1*sin(trajXYVphi[idx,4,3]),0,0];
-        global goal_1 = [trajPlan[1,idx] + r1*cos(trajPlan[4,idx]),trajPlan[2,idx]+r1*sin(trajPlan[4,idx]),0,0];
+        global goal_1 = [mpcTraj[1,idx] + r1*cos(mpcTraj[4,idx]),mpcTraj[2,idx]+r1*sin(mpcTraj[4,idx]),0,0];
         # global goal_2 = [trajXYVphi[idx,1,3]-r2*cos(trajXYVphi[idx,4,3]),trajXYVphi[idx,2,3]-r2*sin(trajXYVphi[idx,4,3]),0,0];
-        global goal_2 = [trajPlan[1,idx] - r2*cos(trajPlan[4,idx]),trajPlan[2,idx]-r2*sin(trajPlan[4,idx]),0,0];
+        global goal_2 = [mpcTraj[1,idx] + r2*cos(mpcTraj[4,idx]),mpcTraj[2,idx]+r2*sin(mpcTraj[4,idx]),0,0];
     else
         # Calculate final goal positions of pursuing agents
         # global goal_1 = [trajXYVphi[steps,1,3]+r1*cos(trajXYVphi[steps,4,3]),trajXYVphi[steps,2,3]+r1*sin(trajXYVphi[steps,4,3]),0,0];
         # global goal_2 = [trajXYVphi[steps,1,3]-r2*cos(trajXYVphi[steps,4,3]),trajXYVphi[steps,2,3]-r2*sin(trajXYVphi[steps,4,3]),0,0];
-        global goal_1 = [trajPlan[1,steps] + r1*cos(trajPlan[4,steps]),trajPlan[2,steps]+r1*sin(trajPlan[4,steps]),0,0];
-        global goal_2 = [trajPlan[1,steps] - r2*cos(trajPlan[4,steps]),trajPlan[2,steps]-r2*sin(trajPlan[4,steps]),0,0];
+        global goal_1 = [mpcTraj[1,steps] + r1*cos(mpcTraj[4,steps]),mpcTraj[2,steps]+r1*sin(mpcTraj[4,steps]),0,0];
+        global goal_2 = [mpcTraj[1,steps] + r2*cos(mpcTraj[4,steps]),mpcTraj[2,steps]+r2*sin(mpcTraj[4,steps]),0,0];
     end
-
+    # print("hier")
 end
 
 using Plots
