@@ -31,7 +31,7 @@ end
 ################################################################################
 
 function set_roadway!(vis::Visualizer, opts::HighwayRoadwayOptions{T};
-    vis_opts::RoadwayVisualizationOptions=RoadwayVisualizationOptions(), k) where {T}
+    vis_opts::RoadwayVisualizationOptions=RoadwayVisualizationOptions(), k::Int=1) where {T}
     clean!(vis)
     ll = opts.lane_length
     lw = opts.lane_width

@@ -17,6 +17,7 @@ mutable struct Player{T,SMQ,SMR,SVx,SVu}
     r_col::T       # Collision radius of the car
     r_cost::T      # Radius of the collision avoidance cost
     μ::T           # Amplitude of the collision avoidance cost
+	vel_scale::T   # Scalar to multiply the MPC agent's velocity by
 end
 
 function Player(model::AbstractGameModel, lane::Lane{T};
@@ -33,6 +34,7 @@ function Player(model::AbstractGameModel, lane::Lane{T};
 				   u_max::SVector{mi,T}=Inf*ones(SVector{model.mi[1],T}),
 				   v_min::T=-Inf,
 				   v_max::T=Inf,
+				   vel_scale::T=0.0,
 		) where {ni,mi,T}
 
 	x0_ = specialize(model, x0)
@@ -53,6 +55,7 @@ function Player(model::AbstractGameModel, lane::Lane{T};
 		r_col,
 		r_cost,
 		μ,
+		vel_scale
 		)
 	return player
 end

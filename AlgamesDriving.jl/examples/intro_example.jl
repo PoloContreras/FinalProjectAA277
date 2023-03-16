@@ -7,31 +7,34 @@ using MeshCat
 # Generate Autonomous Driving Scenario
 
 # Create Roadway
-roadway_opts = MergingRoadwayOptions()
+roadway_opts = HighwayRoadwayOptions()
 roadway = build_roadway(roadway_opts)
 
 # Create Dynamics Model
 p = 3
-model = UnicycleGame(p=p)
+model = BicycleGame(p=p)
 
 # Create Players
 players = Vector{Player}(undef, p)
 # For each player specify the start and goal state
 players[1] = Player(model, roadway.lane[1],
     x0=VehicleState(0.0, 0.1, 0.0, 0.3),
-    xf=VehicleState(4.0, 0.1, 0.0, 0.3))
+    xf=VehicleState(4.0, 0.1, 0.0, 0.3),
+    vel_scale=100.0)
 players[2] = Player(model, roadway.lane[2],
     x0=VehicleState(0.0,-0.1, 0.0, 0.3),
-    xf=VehicleState(4.0,-0.1, 0.0, 0.3))
+    xf=VehicleState(4.0,-0.1, 0.0, 0.3),
+    vel_scale=100.0)
 players[3] = Player(model, roadway.lane[3],
     x0=VehicleState(0.2,-0.1, 0.0, 0.3),
-    xf=VehicleState(4.0, 0.1, 0.0, 0.3))
+    xf=VehicleState(4.0, 0.1, 0.0, 0.3),
+    vel_scale=-100.0)
 
 # Create Scenario
 sce = Scenario(model, roadway, players)
 
 # Create Dynamic Game Problem
-N = 20 # number of time steps
+N = 30 # number of time steps
 dt = 0.1 # time step
 solver_opts = Options() # solver options
 prob = GameProblem(N, dt, sce, solver_opts) # atonomous driving problem

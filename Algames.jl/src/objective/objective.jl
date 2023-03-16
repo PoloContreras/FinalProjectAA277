@@ -81,12 +81,13 @@ function cost_hessian!(game_obj::GameObjective, pdtraj::PrimalDualTraj, i::Int)
 end
 
 
-function add_collision_cost!(game_obj::GameObjective, radius::AbstractVector{T}, μ::AbstractVector{T}) where {T}
+function add_collision_cost!(game_obj::GameObjective, radius::AbstractVector{T}, μ::AbstractVector{T}, mpc::Union{AbstractVector, Nothing}=nothing) where {T}
 	N = game_obj.probsize.N
 	n = game_obj.probsize.n
 	m = game_obj.probsize.m
 	p = game_obj.probsize.p
 	px = game_obj.probsize.px
+	pz = game_obj.probsize.pz
 	@assert p == length(radius) == length(μ)
  	for i = 1:p
 		for j ∈ setdiff(1:p,i)
@@ -94,6 +95,16 @@ function add_collision_cost!(game_obj::GameObjective, radius::AbstractVector{T},
 			E = Objective([LQRCost(1e-10*ones(n,n)+I, 1e-10*zeros(m,m)+I, zeros(MVector{n,T})) for k=1:N])
 			push!(game_obj.obj[i], obj)
 			push!(game_obj.E[i], E)
+		end
+	end
+	if mpc !== nothing
+		println("Enabling mpc velocity cost!")
+		for i = 1:p-1
+			obj = Objective(VelocityCost{n,m,T,length(pz[i])}(mpc[i], pz[p]), N)
+			E = Objective([LQRCost(1e-10*ones(n,n)+I, 1e-10*zeros(m,m)+I, zeros(MVector{n,T})) for k=1:N])
+			push!(game_obj.obj[i], obj)
+			push!(game_obj.E[i], E)
+			println(obj.cost[1])
 		end
 	end
 	return nothing
@@ -127,6 +138,7 @@ end
 function TrajectoryOptimization.stage_cost(cost::CollisionCost, x::AbstractVector{T}) where T
 	xi = x[cost.pxi]
 	xj = x[cost.pxj]
+	println("inside collision stage cost: ", xi, xj)
 	0.5 * cost.μ * max(0., cost.r - norm(xi-xj))^2
 end
 
@@ -188,5 +200,67 @@ function TrajectoryOptimization.state_dim(cost::CollisionCost{n,m,T,ni}) where {
 end
 
 function TrajectoryOptimization.control_dim(cost::CollisionCost{n,m,T,ni}) where {n,m,T,ni}
+	return m
+end
+
+
+################################################################################
+# Opponent Velocity Cost
+################################################################################
+
+mutable struct VelocityCost{n,m,T,ni} <: TrajectoryOptimization.CostFunction
+	μ::T
+	pzi::SVector{ni,Int} # the state of the robot to penalize
+
+    function VelocityCost{n,m,T,ni}(μ::T, pzi::SVector{ni,Int}) where {n,m,T,ni}
+        new{n,m,T,ni}(μ, pzi)
+    end
+end
+
+function TrajectoryOptimization.stage_cost(cost::VelocityCost, x::AbstractVector, u::AbstractVector)
+    J = TrajectoryOptimization.stage_cost(cost, x)
+    return J
+end
+
+function TrajectoryOptimization.stage_cost(cost::VelocityCost, x::AbstractVector{T}) where T
+	mpc_vel = x[cost.pzi[3]]
+	println(" mpc with %d ": mpc_vel)
+	0.5 * cost.μ * mpc_vel^2
+end
+
+
+function TrajectoryOptimization.gradient!(E::TrajectoryOptimization.QuadraticCostFunction, cost::VelocityCost, x)
+	mpc_vel = x[cost.pzi[3]]
+	E.q[cost.pzi[3]] = cost.μ * mpc_vel
+    return false
+end
+
+function TrajectoryOptimization.gradient!(E::TrajectoryOptimization.QuadraticCostFunction, cost::VelocityCost, x, u)
+    TrajectoryOptimization.gradient!(E, cost, x)
+    E.r .= 0.
+    return false
+end
+
+function TrajectoryOptimization.hessian!(E::TrajectoryOptimization.QuadraticCostFunction, cost::VelocityCost, x)
+	E.Q[cost.pzi[3], cost.pzi[3]] = cost.μ
+    return true
+end
+
+function TrajectoryOptimization.hessian!(E::TrajectoryOptimization.QuadraticCostFunction, cost::VelocityCost, x, u)
+    TrajectoryOptimization.hessian!(E, cost, x)
+    E.R .= 0
+    return true
+end
+
+import Base.copy
+function Base.copy(c::VelocityCost{n,m,T,ni}) where {n,m,T,ni}
+    VelocityCost{n,m,T,ni}(copy(c.μ), copy(c.pzi))
+end
+
+function TrajectoryOptimization.state_dim(cost::VelocityCost{n,m,T,ni}) where {n,m,T,ni}
+	return n
+end
+
+function TrajectoryOptimization.control_dim(cost::VelocityCost{n,m,T,ni}) where {n,m,T,ni}
 	return m
 end

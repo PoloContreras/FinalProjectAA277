@@ -62,7 +62,8 @@ function Algames.GameObjective(N::Int, sce::Scenario{T}) where {T}
 
     radius = [sce.player[i].r_cost for i=1:p]
     μ = [sce.player[i].μ for i=1:p]
-    add_collision_cost!(game_obj, radius, μ)
+    v = [sce.player[i].vel_scale for i=1:p]
+    add_collision_cost!(game_obj, radius, μ, v)
     return game_obj
 end
 

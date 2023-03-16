@@ -43,10 +43,10 @@ add_state_bound!(game_con, 1, x_max, x_min)
 walls = [Wall([0.0,-0.4], [1.0,-0.4], [0.,-1.])]
 add_wall_constraint!(game_con, walls)
 # Add circle constraint
-xc = [1., 2., 3.]
-yc = [1., 2., 3.]
-radius = [0.1, 0.2, 0.3]
-add_circle_constraint!(game_con, xc, yc, radius)
+# xc = [1., 2., 3.]
+# yc = [1., 2., 3.]
+# radius = [0.1, 0.2, 0.3]
+# add_circle_constraint!(game_con, xc, yc, radius)
 
 # Designed to hold the trajectory of the entire rollout
 trajTotal = zeros((steps*k,4,p));
@@ -90,7 +90,9 @@ for iter in 1:k
     game_obj = GameObjective(Q,R,xf,uf,N,model)
     radius = 1.0*ones(p)
     μ = 5.0*ones(p)
-    add_collision_cost!(game_obj, radius, μ)
+    vel_cost = 1000.0*ones(p)
+    println("vel cost shape: ", size(vel_cost))
+    add_collision_cost!(game_obj, radius, μ, vel_cost)
 
     # Define the initial state of the system
     x0 = SVector{model.n,T}(reshape([
@@ -134,7 +136,7 @@ for iter in 1:k
     for i in 1:N
         # print("Step ",i,": ",prob.pdtraj.pr[i].z,"\n")
         tempTrajMat = reshape(prob.pdtraj.pr[i].z,(3,6));
-        print("Step :",i,": ",tempTrajMat,"\n")
+        print("Step ",i,": ",tempTrajMat,"\n")
         for j in 1:p
             trajXYVphi[i,:,j] = tempTrajMat[j,1:4];
         end
